@@ -23,3 +23,7 @@ I have enough information to build the server. Based on the OTC LTS API document
 - `query_log_histogram` – time-bucketed log volume (uses `?type=count`)
 
 Authentication via `clouds.yaml` / `OS_CLIENT_CONFIG_FILE` / `OS_CLOUD` is preserved exactly as before.
+
+```
+env OS_CLIENT_CONFIG_FILE=/gorgon/ia/otc_cloudeye_mcp_server/clouds.yaml uv run /gorgon/ia/otc_logtank_mcp_server/otc_logtank_mcp.py
+```
