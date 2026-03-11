@@ -1,29 +1,80 @@
-I have enough information to build the server. Based on the OTC LTS API documentation patterns I've gathered (the API uses `/v2/{project_id}/groups` for log groups, `/v2/{project_id}/groups/{log_group_id}/streams` for log streams, and POST endpoints for log queries), I'll now write the refactored MCP server.Here's a summary of what changed and how the server is structured:
+# OTC Log Tank Service (LTS) MCP Server
 
-**Removed entirely:** All CloudEye / CES metrics code (`OTCCloudEyeClient`, `list_servers`, `get_agt_metrics_definitions`, `get_ecs_metrics_definitions`, `get_single_metric_data`, `get_combined_metrics_snapshot`).
+This MCP server provides a comprehensive interface for interacting with the **Open Telekom Cloud (OTC) Log Tank Service (LTS)**. It allows you to manage log groups, discover log streams, and perform advanced log queries directly from your AI assistant.
 
-**New `OTCLTSClient`** wraps the LTS REST API at `lts.{region}.otc.t-systems.com`:
+## Features
 
-| Method | HTTP call | Purpose |
-|---|---|---|
-| `list_log_groups()` | `GET /v2/{project_id}/groups` | All log groups in the project |
-| `list_log_streams_in_group(group_id)` | `GET /v2/{project_id}/groups/{group_id}/streams` | Streams inside one group |
-| `list_all_log_streams()` | `GET /v2/{project_id}/log-streams` | Cross-group stream search |
-| `query_logs(...)` | `POST .../content/query` | Raw log retrieval with keyword filter & pagination |
-| `query_logs_by_time_segment(...)` | `POST .../content/query?type=count` | Log-volume histogram |
+- **Project Management:** List available projects and switch the active context.
+- **Discovery:** Browse log groups and streams across your entire project.
+- **Advanced Querying:** Search logs using full-text keywords, specific time ranges (ISO 8601 or relative), and pagination support.
+- **Analytics:** Retrieve log volume histograms and counts without fetching full log content.
+- **Seamless Authentication:** Uses standard `clouds.yaml` configuration.
 
-**MCP tools exposed:**
-- `list_available_projects` / `set_active_project` – unchanged project management
-- `list_log_groups` – browse all log groups
-- `list_log_streams_in_group` – streams in a group (optional tag filter)
-- `list_all_log_streams` – cross-project stream search by name
-- `query_logs` – fetch logs with `hours_back` + keyword + pagination cursor
-- `query_logs_with_time_range` – same but with explicit ISO 8601 timestamps
-- `count_logs` – count-only query (no content returned, fast)
-- `query_log_histogram` – time-bucketed log volume (uses `?type=count`)
+## Available Tools
 
-Authentication via `clouds.yaml` / `OS_CLIENT_CONFIG_FILE` / `OS_CLOUD` is preserved exactly as before.
+### Project Management
+- `list_available_projects`: Lists all OTC projects available to the authenticated user.
+- `set_active_project`: Switches the active project for all subsequent operations.
 
+### Log Discovery
+- `list_log_groups`: Lists all LTS log groups in the current project.
+- `list_log_streams_in_group`: Lists all log streams within a specific log group (supports tag filtering).
+- `list_all_log_streams`: Performs a cross-group search for log streams by name.
+
+### Log Querying & Analytics
+- `query_logs`: Fetches raw log content from a stream using relative time (e.g., `hours_back`), keyword filters, and pagination.
+- `query_logs_with_time_range`: Fetches raw logs using explicit ISO 8601 timestamps.
+- `count_logs`: Returns the total number of log entries matching a query without downloading content.
+- `query_log_histogram`: Returns a time-based histogram (log count per time bucket) for analyzing activity spikes.
+
+## Setup
+
+### Prerequisites
+
+1. **Python & uv:** Ensure you have Python installed. We recommend using `uv` for easy dependency management.
+2. **OTC Credentials:** A valid `clouds.yaml` file is required. By default, the server looks for it in:
+   - `~/.config/openstack/clouds.yaml`
+   - `/etc/openstack/clouds.yaml`
+   - The current working directory.
+   - Alternatively, set the `OS_CLIENT_CONFIG_FILE` environment variable.
+
+### Configuration
+
+The server uses the `otc` cloud profile by default. You can override this by setting the `OS_CLOUD` environment variable.
+
+## Installation
+
+### For Claude Desktop
+
+Add the following to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "otc-logtank": {
+      "command": "uv",
+      "args": [
+        "run",
+        "/path/to/otc_logtank_mcp_server/otc_logtank_mcp.py"
+      ],
+      "env": {
+        "OS_CLIENT_CONFIG_FILE": "/path/to/your/clouds.yaml",
+        "OS_CLOUD": "otc"
+      }
+    }
+  }
+}
 ```
-env OS_CLIENT_CONFIG_FILE=/gorgon/ia/otc_cloudeye_mcp_server/clouds.yaml uv run /gorgon/ia/otc_logtank_mcp_server/otc_logtank_mcp.py
+
+### Direct Execution
+
+You can run the server directly using `uv`:
+
+```bash
+export OS_CLIENT_CONFIG_FILE=/path/to/clouds.yaml
+uv run otc_logtank_mcp.py
 ```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
